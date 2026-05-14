@@ -9,6 +9,7 @@ import {
   ExternalLink,
   Loader2,
   AlertCircle,
+  Download,
 } from "lucide-react";
 import { api } from "../api";
 
@@ -199,9 +200,20 @@ export default function AuditTrail({ parcel, onBack, onClose }) {
               <div className="text-white font-semibold">{parcel.apn}</div>
             </div>
           </div>
-          <button onClick={onClose} className="text-blue-300 hover:text-white transition-colors">
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-3">
+            <a
+              href={api.exportPdf(parcel.apn)}
+              download
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-[#253C6B] hover:bg-[#4A6FA5] text-blue-200 hover:text-white transition-colors"
+              title="Download PDF record"
+            >
+              <Download size={12} />
+              Export PDF
+            </a>
+            <button onClick={onClose} className="text-blue-300 hover:text-white transition-colors">
+              <X size={18} />
+            </button>
+          </div>
         </div>
       </div>
 

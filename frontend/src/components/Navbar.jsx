@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Info } from "lucide-react";
+import { Info, SlidersHorizontal } from "lucide-react";
 
 function SealIcon() {
   return (
@@ -15,7 +15,7 @@ function SealIcon() {
   );
 }
 
-export default function Navbar({ demoMode, onToggleDemoMode, demoStep }) {
+export default function Navbar({ demoMode, onToggleDemoMode, demoStep, filterPanelOpen, onToggleFilterPanel }) {
   const [showBlockchainInfo, setShowBlockchainInfo] = useState(false);
 
   return (
@@ -33,6 +33,17 @@ export default function Navbar({ demoMode, onToggleDemoMode, demoStep }) {
       </div>
 
       <div className="flex items-center gap-5 text-sm">
+        <button
+          onClick={onToggleFilterPanel}
+          className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors ${
+            filterPanelOpen
+              ? "bg-[#4A6FA5] text-white"
+              : "text-blue-200 hover:text-white hover:bg-[#253C6B]"
+          }`}
+        >
+          <SlidersHorizontal size={13} />
+          Browse All
+        </button>
         <div className="flex items-center gap-1.5 text-blue-200">
           <span className="text-xs">Marin County, CA</span>
           <span className="text-blue-400">·</span>

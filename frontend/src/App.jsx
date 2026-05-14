@@ -5,6 +5,7 @@ import ParcelDetail from "./views/ParcelDetail";
 import AuditTrail from "./views/AuditTrail";
 import AddCovenantModal from "./components/AddCovenantModal";
 import DemoOverlay from "./components/DemoOverlay";
+import FilterPanel from "./views/FilterPanel";
 
 export default function App() {
   const [demoMode, setDemoMode] = useState(false);
@@ -12,6 +13,7 @@ export default function App() {
   const [selectedParcel, setSelectedParcel] = useState(null);
   const [showAudit, setShowAudit] = useState(false);
   const [showAddCovenant, setShowAddCovenant] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [parcels, setParcels] = useState([]);
 
   const handleParcelSelect = useCallback(
@@ -52,6 +54,8 @@ export default function App() {
         demoMode={demoMode}
         onToggleDemoMode={handleToggleDemoMode}
         demoStep={demoStep}
+        filterPanelOpen={showFilterPanel}
+        onToggleFilterPanel={() => setShowFilterPanel((v) => !v)}
       />
 
       <div className="flex-1 relative overflow-hidden">
@@ -63,7 +67,16 @@ export default function App() {
           demoMode={demoMode}
           demoStep={demoStep}
           onDemoStepChange={setDemoStep}
+          filterPanelOpen={showFilterPanel}
         />
+
+        {showFilterPanel && (
+          <FilterPanel
+            parcels={parcels}
+            onParcelSelect={handleParcelSelect}
+            onClose={() => setShowFilterPanel(false)}
+          />
+        )}
 
         {selectedParcel && !showAudit && (
           <ParcelDetail

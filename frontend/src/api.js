@@ -10,7 +10,12 @@ async function request(path, options = {}) {
 export const api = {
   getParcels: () => request("/parcels"),
   getParcel: (apn) => request(`/parcels/${encodeURIComponent(apn)}`),
-  searchParcels: (q) => request(`/parcels/search?q=${encodeURIComponent(q)}`),
+  searchParcels: ({ q = "", covenantType = "" } = {}) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (covenantType) params.set("covenant_type", covenantType);
+    return request(`/parcels/search?${params}`);
+  },
   addCovenant: (apn, body) =>
     request(`/parcels/${encodeURIComponent(apn)}/covenant`, {
       method: "POST",
@@ -18,5 +23,6 @@ export const api = {
       body: JSON.stringify(body),
     }),
   getAuditTrail: (apn) => request(`/audit/${encodeURIComponent(apn)}`),
+  exportPdf: (apn) => `/api/parcels/${encodeURIComponent(apn)}/export.pdf`,
   getHealth: () => request("/health"),
 };

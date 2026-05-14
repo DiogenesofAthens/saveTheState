@@ -38,7 +38,7 @@ function SearchBar({ parcels, onSelect, demoMode, demoStep, onDemoStepChange }) 
     timeoutRef.current = setTimeout(async () => {
       setLoading(true);
       try {
-        const data = await api.searchParcels(query);
+        const data = await api.searchParcels({ q: query });
         setResults(data.slice(0, 8));
         setOpen(true);
       } catch {
@@ -142,6 +142,7 @@ export default function MapView({
   demoMode,
   demoStep,
   onDemoStepChange,
+  filterPanelOpen,
 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -238,15 +239,17 @@ export default function MapView({
         {selectedParcel && <FlyToParcel parcel={selectedParcel} />}
       </MapContainer>
 
-      <SearchBar
-        parcels={parcels}
-        onSelect={handleSearchSelect}
-        demoMode={demoMode}
-        demoStep={demoStep}
-        onDemoStepChange={onDemoStepChange}
-      />
+      {!filterPanelOpen && (
+        <SearchBar
+          parcels={parcels}
+          onSelect={handleSearchSelect}
+          demoMode={demoMode}
+          demoStep={demoStep}
+          onDemoStepChange={onDemoStepChange}
+        />
+      )}
 
-      <Legend />
+      {!filterPanelOpen && <Legend />}
 
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-50">
