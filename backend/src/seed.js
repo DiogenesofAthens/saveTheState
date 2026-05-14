@@ -178,9 +178,8 @@ async function main() {
     console.log("Signer:", signerAddress);
 
     const addrPath = path.join(__dirname, "../contract-address.json");
-    if (!fs.existsSync(addrPath)) {
-      console.error("contract-address.json missing. Deploy the contract first.");
-      process.exit(1);
+    if (!process.env.CONTRACT_ADDRESS && !fs.existsSync(addrPath)) {
+      throw new Error("contract-address.json missing and CONTRACT_ADDRESS not set.");
     }
     const { address } = JSON.parse(fs.readFileSync(addrPath));
     const artifactPath = path.join(

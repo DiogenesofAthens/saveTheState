@@ -19,10 +19,12 @@ function loadABI() {
 }
 
 function loadContractAddress() {
+  // Env var takes priority — set CONTRACT_ADDRESS in Vercel for Base Sepolia deployments
+  if (process.env.CONTRACT_ADDRESS) return process.env.CONTRACT_ADDRESS;
   const addrPath = path.join(__dirname, "../contract-address.json");
   if (!fs.existsSync(addrPath)) {
     throw new Error(
-      "contract-address.json not found. Deploy the contract first with 'npm run deploy:local' in contracts/."
+      "Contract address not found. Set CONTRACT_ADDRESS env var or deploy with 'npm run deploy:local'."
     );
   }
   return JSON.parse(fs.readFileSync(addrPath, "utf8")).address;

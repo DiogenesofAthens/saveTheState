@@ -1,0 +1,14 @@
+{
+  "name": "save-the-state",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sovereign District — Parcel Covenant Registry (Vercel root manifest)",
+  "dependencies": {
+    "@neondatabase/serverless": "^0.9.3",
+    "better-sqlite3": "^12.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.11.1",
+    "express": "^4.19.2"
+  }
+}
