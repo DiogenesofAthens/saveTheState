@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: "Inter", system-ui, sans-serif;
+    background-color: #ffffff;
+    color: #111827;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Leaflet overrides */
+.leaflet-container {
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(27, 42, 74, 0.15);
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.leaflet-popup-content {
+  margin: 12px 16px;
+  font-size: 13px;
+}
+
+/* Smooth panel transitions */
+.panel-enter {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.panel-enter-active {
+  transform: translateX(0);
+  opacity: 1;
+  transition: transform 250ms ease-out, opacity 200ms ease-out;
+}
+
+/* Demo tooltip pulse animation */
+@keyframes demo-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74, 111, 165, 0.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(74, 111, 165, 0); }
+}
+
+.demo-highlight {
+  animation: demo-pulse 2s infinite;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #F3F4F6; }
+::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
