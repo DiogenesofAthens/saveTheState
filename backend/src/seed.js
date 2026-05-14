@@ -197,6 +197,9 @@ async function main() {
     console.log("Contract:", address, "\n");
     chainAvailable = true;
   } catch (err) {
+    // Destroy the provider so its background retry loop doesn't keep Node.js alive
+    try { provider?.destroy(); } catch (_) {}
+    provider = null;
     console.warn("Chain not available:", err.message);
     console.warn("Seeding SQLite only (no on-chain transactions).\n");
   }
