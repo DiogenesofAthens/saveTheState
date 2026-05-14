@@ -196,66 +196,51 @@ async function main() {
     console.warn("Seeding SQLite only (no on-chain transactions).\n");
   }
 
-  // 1. Insert parcels into SQLite
-  const insertParcel = db.prepare(
-    `INSERT OR IGNORE INTO parcels
-       (apn, parcel_id, address, city, zip, owner_type, acreage, zoning, lat, lng, on_chain)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
-  );
+  // 0. Ensure schema exists
+  await db.init();
 
+  // 1. Insert parcels
   for (const p of PARCELS) {
     const parcelId =
       "0x" +
       BigInt(ethers.keccak256(ethers.toUtf8Bytes(p.apn)))
         .toString(16)
         .padStart(64, "0");
-    insertParcel.run(
-      p.apn,
-      parcelId,
-      p.address,
-      p.city,
-      p.zip,
-      p.ownerType,
-      p.acreage,
-      p.zoning,
-      p.lat,
-      p.lng
+    await db.run(
+      `INSERT INTO parcels
+         (apn, parcel_id, address, city, zip, owner_type, acreage, zoning, lat, lng, on_chain)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+       ON CONFLICT (apn) DO NOTHING`,
+      [p.apn, parcelId, p.address, p.city, p.zip, p.ownerType,
+       p.acreage, p.zoning, p.lat, p.lng]
     );
   }
-  console.log(`Inserted ${PARCELS.length} parcels into SQLite.`);
+  console.log(`Inserted ${PARCELS.length} parcels into database.`);
 
   // 2. Mint parcels on-chain if available
   if (chainAvailable) {
     console.log("\nMinting parcels on-chain...");
     for (const p of PARCELS) {
       try {
-        const exists = (await contract.getParcel(
-          await contract.apnToId(p.apn)
-        )).exists;
-        if (exists) {
-          process.stdout.write(".");
-          continue;
-        }
+        const exists = (await contract.getParcel(await contract.apnToId(p.apn))).exists;
+        if (exists) { process.stdout.write("."); continue; }
+
         const tx = await contract.mintParcel(p.apn);
         const receipt = await tx.wait(1);
         const block = await provider.getBlock(receipt.blockNumber);
         const ts = new Date(Number(block.timestamp) * 1000).toISOString();
 
-        db.prepare(
-          "UPDATE parcels SET on_chain=1, minted_at=?, minted_by=? WHERE apn=?"
-        ).run(ts, signerAddress, p.apn);
-
-        db.prepare(
-          `INSERT OR IGNORE INTO audit_events
+        await db.run(
+          "UPDATE parcels SET on_chain=1, minted_at=?, minted_by=? WHERE apn=?",
+          [ts, signerAddress, p.apn]
+        );
+        await db.run(
+          `INSERT INTO audit_events
              (parcel_apn, event_type, block_number, tx_hash, block_timestamp, actor, details)
-           VALUES (?, 'ParcelMinted', ?, ?, ?, ?, ?)`
-        ).run(
-          p.apn,
-          receipt.blockNumber,
-          receipt.hash,
-          ts,
-          signerAddress,
-          JSON.stringify({ apn: p.apn })
+           VALUES (?, 'ParcelMinted', ?, ?, ?, ?, ?)
+           ON CONFLICT DO NOTHING`,
+          [p.apn, receipt.blockNumber, receipt.hash, ts, signerAddress,
+           JSON.stringify({ apn: p.apn })]
         );
         process.stdout.write("✓");
       } catch (err) {
@@ -268,24 +253,19 @@ async function main() {
   // 3. Seed covenants
   console.log("Seeding covenants...");
   for (const c of SEED_COVENANTS) {
-    const parcel = db.prepare("SELECT * FROM parcels WHERE apn=?").get(c.apn);
+    const parcel = await db.get("SELECT apn FROM parcels WHERE apn=?", [c.apn]);
     if (!parcel) continue;
 
-    const existing = db
-      .prepare("SELECT id FROM covenants WHERE parcel_apn=? AND covenant_type=?")
-      .get(c.apn, c.type);
-    if (existing) {
-      process.stdout.write(".");
-      continue;
-    }
+    const existing = await db.get(
+      "SELECT id FROM covenants WHERE parcel_apn=? AND covenant_type=?",
+      [c.apn, c.type]
+    );
+    if (existing) { process.stdout.write("."); continue; }
 
-    const ipfsHash = crypto
-      .createHash("sha256")
-      .update(`${c.apn}:${c.type}:${c.text}`)
-      .digest("hex");
+    const ipfsHash = crypto.createHash("sha256")
+      .update(`${c.apn}:${c.type}:${c.text}`).digest("hex");
 
-    let txHash = null;
-    let blockNumber = null;
+    let txHash = null, blockNumber = null;
     let blockTimestamp = new Date(Date.now() - Math.random() * 30 * 24 * 3600 * 1000).toISOString();
 
     if (chainAvailable) {
@@ -295,52 +275,36 @@ async function main() {
         const receipt = await tx.wait(1);
         txHash = receipt.hash;
         blockNumber = receipt.blockNumber;
-        const block = await provider.getBlock(blockNumber);
-        blockTimestamp = new Date(Number(block.timestamp) * 1000).toISOString();
+        blockTimestamp = new Date(Number((await provider.getBlock(blockNumber)).timestamp) * 1000).toISOString();
         process.stdout.write("✓");
-      } catch (err) {
-        console.error(`\nChain error for ${c.apn}:`, err.message);
-      }
+      } catch (err) { console.error(`\nChain error for ${c.apn}:`, err.message); }
     } else {
       process.stdout.write("·");
     }
 
-    const maxRow = db
-      .prepare("SELECT MAX(covenant_index) AS max FROM covenants WHERE parcel_apn=?")
-      .get(c.apn);
+    const maxRow = await db.get(
+      "SELECT MAX(covenant_index) AS max FROM covenants WHERE parcel_apn=?", [c.apn]
+    );
     const covenantIndex = (maxRow?.max ?? -1) + 1;
 
-    db.prepare(
-      `INSERT OR IGNORE INTO covenants
+    await db.run(
+      `INSERT INTO covenants
          (parcel_apn, covenant_index, covenant_type, legal_text, ipfs_hash, legal_reference,
           creator, tx_hash, block_number, block_timestamp, active, flagged)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`
-    ).run(
-      c.apn,
-      covenantIndex,
-      c.type,
-      c.text,
-      ipfsHash,
-      c.ref || null,
-      signerAddress,
-      txHash,
-      blockNumber,
-      blockTimestamp,
-      c.flagged ? 1 : 0
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+       ON CONFLICT (parcel_apn, covenant_index) DO NOTHING`,
+      [c.apn, covenantIndex, c.type, c.text, ipfsHash, c.ref || null,
+       signerAddress, txHash, blockNumber, blockTimestamp, c.flagged ? 1 : 0]
     );
 
     if (blockNumber) {
-      db.prepare(
-        `INSERT OR IGNORE INTO audit_events
+      await db.run(
+        `INSERT INTO audit_events
            (parcel_apn, event_type, block_number, tx_hash, block_timestamp, actor, details)
-         VALUES (?, 'CovenantAdded', ?, ?, ?, ?, ?)`
-      ).run(
-        c.apn,
-        blockNumber,
-        txHash,
-        blockTimestamp,
-        signerAddress,
-        JSON.stringify({ covenantIndex, covenantType: c.type, ipfsHash })
+         VALUES (?, 'CovenantAdded', ?, ?, ?, ?, ?)
+         ON CONFLICT DO NOTHING`,
+        [c.apn, blockNumber, txHash, blockTimestamp, signerAddress,
+         JSON.stringify({ covenantIndex, covenantType: c.type, ipfsHash })]
       );
     }
   }
