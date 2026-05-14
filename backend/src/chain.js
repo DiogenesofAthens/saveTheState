@@ -35,7 +35,13 @@ async function init() {
   provider = new ethers.JsonRpcProvider(rpcUrl);
 
   try {
-    await provider.getBlockNumber();
+    // ethers v6 retries network detection indefinitely — race with a 5s timeout
+    await Promise.race([
+      provider.getBlockNumber(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("RPC connection timeout")), 5000)
+      ),
+    ]);
   } catch {
     console.warn(
       "[chain] WARNING: Cannot connect to node at",
