@@ -10,6 +10,7 @@ import {
   Loader2,
   AlertCircle,
   Download,
+  FileText,
 } from "lucide-react";
 import { api } from "../api";
 
@@ -29,6 +30,30 @@ const EVENT_CONFIG = {
     bg: "bg-green-50",
     border: "border-green-200",
     dot: "#10B981",
+  },
+  CovenantSubmitted: {
+    icon: FileText,
+    label: "Submission Received",
+    color: "text-blue-700",
+    bg: "bg-blue-50",
+    border: "border-blue-200",
+    dot: "#3B82F6",
+  },
+  CovenantApproved: {
+    icon: Shield,
+    label: "Submission Approved",
+    color: "text-green-700",
+    bg: "bg-green-50",
+    border: "border-green-200",
+    dot: "#10B981",
+  },
+  CovenantRejected: {
+    icon: AlertCircle,
+    label: "Submission Rejected",
+    color: "text-red-700",
+    bg: "bg-red-50",
+    border: "border-red-200",
+    dot: "#EF4444",
   },
   CovenantDeactivated: {
     icon: MinusCircle,
@@ -58,6 +83,7 @@ function formatTs(ts) {
 
 function shortAddr(addr) {
   if (!addr || addr.length < 10) return addr;
+  if (!addr.startsWith("0x")) return addr;
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
@@ -123,6 +149,16 @@ function EventRow({ event, isLast }) {
         {details.covenantIndex !== undefined && (
           <p className="text-xs text-gray-600 mb-1">
             Covenant index: <span className="font-mono">{details.covenantIndex}</span>
+          </p>
+        )}
+        {details.documentHash && (
+          <p className="text-xs text-gray-600 mb-1">
+            Document hash: <span className="font-mono">{shortTx(details.documentHash)}</span>
+          </p>
+        )}
+        {details.status && (
+          <p className="text-xs text-gray-600 mb-1">
+            Status: <span className="font-medium">{details.status}</span>
           </p>
         )}
 

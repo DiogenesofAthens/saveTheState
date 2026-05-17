@@ -99,8 +99,36 @@ function buildNeonAdapter() {
           created_at      TEXT    NOT NULL DEFAULT to_char(NOW(),'YYYY-MM-DD"T"HH24:MI:SS"Z"')
         )
       `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS covenant_submissions (
+          id              SERIAL PRIMARY KEY,
+          parcel_apn      TEXT    NOT NULL REFERENCES parcels(apn),
+          status          TEXT    NOT NULL DEFAULT 'Submitted',
+          covenant_type   TEXT    NOT NULL,
+          legal_text      TEXT    NOT NULL,
+          legal_reference TEXT,
+          submitter_name  TEXT,
+          submitter_type  TEXT,
+          reviewer_name   TEXT,
+          recorder_name   TEXT,
+          rejection_reason TEXT,
+          document_name   TEXT,
+          document_type   TEXT,
+          document_size   INTEGER,
+          document_hash   TEXT    NOT NULL,
+          tx_hash         TEXT,
+          block_number    INTEGER,
+          submitted_at    TEXT    NOT NULL,
+          reviewed_at     TEXT,
+          recorded_at     TEXT,
+          created_at      TEXT    NOT NULL DEFAULT to_char(NOW(),'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+          updated_at      TEXT    NOT NULL DEFAULT to_char(NOW(),'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+        )
+      `;
       await sql`CREATE INDEX IF NOT EXISTS idx_covenants_apn ON covenants(parcel_apn)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_audit_apn ON audit_events(parcel_apn)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_submissions_apn ON covenant_submissions(parcel_apn)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_submissions_status ON covenant_submissions(status)`;
     },
   };
 }
@@ -181,8 +209,34 @@ function buildSQLiteAdapter() {
           details     TEXT,
           created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
         );
+        CREATE TABLE IF NOT EXISTS covenant_submissions (
+          id              INTEGER PRIMARY KEY AUTOINCREMENT,
+          parcel_apn      TEXT    NOT NULL REFERENCES parcels(apn),
+          status          TEXT    NOT NULL DEFAULT 'Submitted',
+          covenant_type   TEXT    NOT NULL,
+          legal_text      TEXT    NOT NULL,
+          legal_reference TEXT,
+          submitter_name  TEXT,
+          submitter_type  TEXT,
+          reviewer_name   TEXT,
+          recorder_name   TEXT,
+          rejection_reason TEXT,
+          document_name   TEXT,
+          document_type   TEXT,
+          document_size   INTEGER,
+          document_hash   TEXT    NOT NULL,
+          tx_hash         TEXT,
+          block_number    INTEGER,
+          submitted_at    TEXT    NOT NULL,
+          reviewed_at     TEXT,
+          recorded_at     TEXT,
+          created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+          updated_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+        );
         CREATE INDEX IF NOT EXISTS idx_covenants_apn ON covenants(parcel_apn);
         CREATE INDEX IF NOT EXISTS idx_audit_apn ON audit_events(parcel_apn);
+        CREATE INDEX IF NOT EXISTS idx_submissions_apn ON covenant_submissions(parcel_apn);
+        CREATE INDEX IF NOT EXISTS idx_submissions_status ON covenant_submissions(status);
       `);
     },
   };

@@ -22,6 +22,25 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
+  getSubmissions: (apn) => request(`/parcels/${encodeURIComponent(apn)}/submissions`),
+  createSubmission: (apn, body) =>
+    request(`/parcels/${encodeURIComponent(apn)}/submissions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  reviewSubmission: (apn, id, body) =>
+    request(`/parcels/${encodeURIComponent(apn)}/submissions/${id}/review`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  recordSubmission: (apn, id, body = {}) =>
+    request(`/parcels/${encodeURIComponent(apn)}/submissions/${id}/record`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
   getAuditTrail: (apn) => request(`/audit/${encodeURIComponent(apn)}`),
   exportPdf: (apn) => `/api/parcels/${encodeURIComponent(apn)}/export.pdf`,
   getHealth: () => request("/health"),

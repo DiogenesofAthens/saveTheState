@@ -115,7 +115,7 @@ export default function ParcelDetail({
             }`}
           >
             <Plus size={12} />
-            Add Covenant
+            Submit Covenant
           </button>
         </div>
 
@@ -123,7 +123,7 @@ export default function ParcelDetail({
           <div className="text-center py-10 text-gray-400">
             <div className="text-3xl mb-2">📋</div>
             <div className="text-sm">No covenants recorded for this parcel.</div>
-            <div className="text-xs mt-1">Be the first to add one.</div>
+            <div className="text-xs mt-1">Submit one for clerk review.</div>
           </div>
         ) : (
           covenants.map((c, i) => <CovenantCard key={i} covenant={c} />)
