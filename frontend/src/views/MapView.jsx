@@ -59,7 +59,7 @@ function SearchBar({ parcels, onSelect, demoMode, demoStep, onDemoStepChange }) 
   return (
     <div
       id="search-bar"
-      className={`absolute top-4 left-4 z-40 w-80 ${
+      className={`absolute top-4 left-4 z-[1000] w-80 ${
         demoMode && demoStep === 1 ? "demo-highlight ring-2 ring-amber-400 rounded-lg" : ""
       }`}
     >
@@ -113,7 +113,7 @@ function SearchBar({ parcels, onSelect, demoMode, demoStep, onDemoStepChange }) 
 
 function Legend() {
   return (
-    <div className="absolute bottom-8 left-4 z-40 bg-white border border-gray-200 rounded-lg shadow-panel px-3 py-2.5">
+    <div className="absolute bottom-8 left-4 z-[1000] bg-white border border-gray-200 rounded-lg shadow-panel px-3 py-2.5">
       <div className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-1.5">
         Covenant Status
       </div>
