@@ -16,7 +16,7 @@ const allowedOrigins = (process.env.CORS_ORIGINS || "")
   .concat(["http://localhost:5173", "http://localhost:3000"]);
 
 app.use(cors({ origin: allowedOrigins }));
-app.use(express.json());
+app.use(express.json({ limit: "5mb" }));
 
 app.use("/api/parcels", parcelsRouter);
 app.use("/api/audit", auditRouter);

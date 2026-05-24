@@ -28,9 +28,9 @@ const STEPS = [
   {
     id: 4,
     icon: Plus,
-    title: "Record a new covenant",
+    title: "Submit a new covenant",
     description:
-      "Click 'Add Covenant' in the parcel panel. Select a covenant type, enter a plain-English summary, and click 'Record to Secure Registry'.",
+      "Click 'Submit Covenant' in the parcel panel. Add the covenant details, attach the source document, approve it as a clerk, then record it.",
     position: "right",
   },
   {

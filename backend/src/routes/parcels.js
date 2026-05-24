@@ -15,6 +15,112 @@ async function getSignerAddress() {
   }
 }
 
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function sha256Hex(bufferOrString) {
+  return crypto.createHash("sha256").update(bufferOrString).digest("hex");
+}
+
+function decodeDocument(document = {}) {
+  const encoded = document.contentBase64 || "";
+  const buffer = encoded ? Buffer.from(encoded, "base64") : Buffer.alloc(0);
+  return {
+    name: document.name || null,
+    type: document.type || null,
+    size: Number.isFinite(document.size) ? document.size : buffer.length,
+    hash: buffer.length ? sha256Hex(buffer) : null,
+  };
+}
+
+async function addAuditEvent(apn, eventType, {
+  blockNumber = null,
+  txHash = null,
+  blockTimestamp = nowIso(),
+  actor = null,
+  details = {},
+} = {}) {
+  const signerAddress = actor || await getSignerAddress();
+  await db.run(
+    `INSERT INTO audit_events
+       (parcel_apn, event_type, block_number, tx_hash, block_timestamp, actor, details)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [apn, eventType, blockNumber, txHash, blockTimestamp, signerAddress, JSON.stringify(details)]
+  );
+}
+
+async function recordCovenant(apn, {
+  covenantType,
+  legalText,
+  legalReference,
+  documentHash,
+  submissionId = null,
+}) {
+  const ipfsHash = documentHash || sha256Hex(`${apn}:${covenantType}:${legalText}:${Date.now()}`);
+
+  let txHash = null;
+  let blockNumber = null;
+  let blockTimestamp = nowIso();
+
+  if (chain.isConnected()) {
+    try {
+      const contract = chain.getContract();
+      const parcelIdOnChain = await contract.apnToId(apn);
+      const tx = await contract.addCovenant(parcelIdOnChain, covenantType, legalText, ipfsHash);
+      const receipt = await tx.wait(1);
+      txHash = receipt.hash;
+      blockNumber = receipt.blockNumber;
+
+      const block = await chain.getProvider().getBlock(blockNumber);
+      blockTimestamp = new Date(Number(block.timestamp) * 1000).toISOString();
+    } catch (err) {
+      console.error("[covenant] Chain write failed:", err.message);
+    }
+  }
+
+  const maxRow = await db.get(
+    "SELECT MAX(covenant_index) AS max FROM covenants WHERE parcel_apn = ?",
+    [apn]
+  );
+  const covenantIndex = (maxRow?.max ?? -1) + 1;
+  const signerAddress = await getSignerAddress();
+
+  await db.run(
+    `INSERT INTO covenants
+       (parcel_apn, covenant_index, covenant_type, legal_text, ipfs_hash, legal_reference,
+        creator, tx_hash, block_number, block_timestamp, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+    [apn, covenantIndex, covenantType, legalText, ipfsHash,
+     legalReference || null, signerAddress, txHash, blockNumber, blockTimestamp]
+  );
+
+  await addAuditEvent(apn, "CovenantAdded", {
+    blockNumber,
+    txHash,
+    blockTimestamp,
+    actor: signerAddress,
+    details: { covenantIndex, covenantType, ipfsHash, documentHash: ipfsHash, submissionId },
+  });
+
+  const updatedParcel = await db.get("SELECT * FROM parcels WHERE apn = ?", [apn]);
+  const covenants = await db.all(
+    "SELECT * FROM covenants WHERE parcel_apn = ? ORDER BY covenant_index ASC",
+    [apn]
+  );
+
+  return {
+    success: true,
+    txHash,
+    blockNumber,
+    blockTimestamp,
+    ipfsHash,
+    documentHash: ipfsHash,
+    covenantIndex,
+    parcel: { ...updatedParcel, covenants },
+  };
+}
+
 // GET /api/parcels — list all parcels with covenant counts
 router.get("/", async (_req, res, next) => {
   try {
@@ -71,6 +177,175 @@ router.get("/search", async (req, res, next) => {
       params
     );
     res.json(rows);
+  } catch (err) { next(err); }
+});
+
+// GET /api/parcels/:apn/submissions — county clerk review queue for a parcel
+router.get("/:apn/submissions", async (req, res, next) => {
+  try {
+    const apn = req.params.apn.toUpperCase();
+    const parcel = await db.get("SELECT apn FROM parcels WHERE apn = ?", [apn]);
+    if (!parcel) return res.status(404).json({ error: "Parcel not found" });
+
+    const submissions = await db.all(
+      "SELECT * FROM covenant_submissions WHERE parcel_apn = ? ORDER BY created_at DESC, id DESC",
+      [apn]
+    );
+    res.json({ apn, submissions });
+  } catch (err) { next(err); }
+});
+
+// POST /api/parcels/:apn/submissions — submit a covenant for clerk review
+router.post("/:apn/submissions", async (req, res, next) => {
+  try {
+    const apn = req.params.apn.toUpperCase();
+    const {
+      covenantType,
+      legalText,
+      legalReference,
+      submitterName,
+      submitterType,
+      document,
+    } = req.body;
+
+    if (!covenantType || !legalText) {
+      return res.status(400).json({ error: "covenantType and legalText are required" });
+    }
+
+    const parcel = await db.get("SELECT * FROM parcels WHERE apn = ?", [apn]);
+    if (!parcel) return res.status(404).json({ error: "Parcel not found" });
+
+    const decodedDocument = decodeDocument(document);
+    const documentHash = decodedDocument.hash || sha256Hex(`${apn}:${covenantType}:${legalText}:${legalReference || ""}`);
+    const submittedAt = nowIso();
+
+    await db.run(
+      `INSERT INTO covenant_submissions
+         (parcel_apn, status, covenant_type, legal_text, legal_reference,
+          submitter_name, submitter_type, document_name, document_type, document_size,
+          document_hash, submitted_at, updated_at)
+       VALUES (?, 'Submitted', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [apn, covenantType, legalText.trim(), legalReference || null,
+       submitterName || "Public Submitter", submitterType || "Public",
+       decodedDocument.name, decodedDocument.type, decodedDocument.size,
+       documentHash, submittedAt, submittedAt]
+    );
+
+    const submission = await db.get(
+      `SELECT * FROM covenant_submissions
+       WHERE parcel_apn = ? AND document_hash = ? AND submitted_at = ?
+       ORDER BY id DESC LIMIT 1`,
+      [apn, documentHash, submittedAt]
+    );
+
+    await addAuditEvent(apn, "CovenantSubmitted", {
+      blockTimestamp: submittedAt,
+      actor: submitterName || "Public Submitter",
+      details: {
+        submissionId: submission.id,
+        covenantType,
+        documentHash,
+        documentName: decodedDocument.name,
+        status: "Submitted",
+      },
+    });
+
+    res.status(201).json({ success: true, submission });
+  } catch (err) { next(err); }
+});
+
+// POST /api/parcels/:apn/submissions/:id/review — approve or reject intake
+router.post("/:apn/submissions/:id/review", async (req, res, next) => {
+  try {
+    const apn = req.params.apn.toUpperCase();
+    const id = Number(req.params.id);
+    const { action, reviewerName, rejectionReason } = req.body;
+
+    if (!["approve", "reject"].includes(action)) {
+      return res.status(400).json({ error: "action must be approve or reject" });
+    }
+
+    const submission = await db.get(
+      "SELECT * FROM covenant_submissions WHERE id = ? AND parcel_apn = ?",
+      [id, apn]
+    );
+    if (!submission) return res.status(404).json({ error: "Submission not found" });
+    if (submission.status === "Recorded") {
+      return res.status(409).json({ error: "Recorded submissions cannot be changed" });
+    }
+
+    const nextStatus = action === "approve" ? "Approved" : "Rejected";
+    const reviewedAt = nowIso();
+    await db.run(
+      `UPDATE covenant_submissions
+       SET status = ?, reviewer_name = ?, rejection_reason = ?, reviewed_at = ?, updated_at = ?
+       WHERE id = ? AND parcel_apn = ?`,
+      [nextStatus, reviewerName || "County Clerk",
+       action === "reject" ? (rejectionReason || "Rejected during clerk review") : null,
+       reviewedAt, reviewedAt, id, apn]
+    );
+
+    const updated = await db.get(
+      "SELECT * FROM covenant_submissions WHERE id = ? AND parcel_apn = ?",
+      [id, apn]
+    );
+
+    await addAuditEvent(apn, action === "approve" ? "CovenantApproved" : "CovenantRejected", {
+      blockTimestamp: reviewedAt,
+      actor: reviewerName || "County Clerk",
+      details: {
+        submissionId: id,
+        covenantType: updated.covenant_type,
+        documentHash: updated.document_hash,
+        status: nextStatus,
+        rejectionReason: updated.rejection_reason,
+      },
+    });
+
+    res.json({ success: true, submission: updated });
+  } catch (err) { next(err); }
+});
+
+// POST /api/parcels/:apn/submissions/:id/record — append approved submission to the secure registry
+router.post("/:apn/submissions/:id/record", async (req, res, next) => {
+  try {
+    const apn = req.params.apn.toUpperCase();
+    const id = Number(req.params.id);
+    const { recorderName } = req.body;
+
+    const submission = await db.get(
+      "SELECT * FROM covenant_submissions WHERE id = ? AND parcel_apn = ?",
+      [id, apn]
+    );
+    if (!submission) return res.status(404).json({ error: "Submission not found" });
+    if (submission.status !== "Approved") {
+      return res.status(409).json({ error: "Only approved submissions can be recorded" });
+    }
+
+    const result = await recordCovenant(apn, {
+      covenantType: submission.covenant_type,
+      legalText: submission.legal_text,
+      legalReference: submission.legal_reference,
+      documentHash: submission.document_hash,
+      submissionId: submission.id,
+    });
+
+    const recordedAt = result.blockTimestamp || nowIso();
+    await db.run(
+      `UPDATE covenant_submissions
+       SET status = 'Recorded', recorder_name = ?, tx_hash = ?, block_number = ?,
+           recorded_at = ?, updated_at = ?
+       WHERE id = ? AND parcel_apn = ?`,
+      [recorderName || "County Recorder", result.txHash, result.blockNumber,
+       recordedAt, recordedAt, id, apn]
+    );
+
+    const updated = await db.get(
+      "SELECT * FROM covenant_submissions WHERE id = ? AND parcel_apn = ?",
+      [id, apn]
+    );
+
+    res.json({ ...result, submission: updated });
   } catch (err) { next(err); }
 });
 
@@ -234,6 +509,9 @@ router.get("/:apn/export.pdf", async (req, res, next) => {
 
     const EVENT_LABELS = {
       ParcelMinted:         "Parcel Registered",
+      CovenantSubmitted:    "Submission Received",
+      CovenantApproved:     "Submission Approved",
+      CovenantRejected:     "Submission Rejected",
       CovenantAdded:        "Covenant Added",
       CovenantDeactivated:  "Covenant Deactivated",
     };
@@ -301,62 +579,8 @@ router.post("/:apn/covenant", async (req, res, next) => {
     const parcel = await db.get("SELECT * FROM parcels WHERE apn = ?", [apn]);
     if (!parcel) return res.status(404).json({ error: "Parcel not found" });
 
-    const ipfsHash = crypto
-      .createHash("sha256")
-      .update(`${apn}:${covenantType}:${legalText}:${Date.now()}`)
-      .digest("hex");
-
-    let txHash = null;
-    let blockNumber = null;
-    let blockTimestamp = new Date().toISOString();
-
-    if (chain.isConnected()) {
-      try {
-        const contract = chain.getContract();
-        const parcelIdOnChain = await contract.apnToId(apn);
-        const tx = await contract.addCovenant(parcelIdOnChain, covenantType, legalText, ipfsHash);
-        const receipt = await tx.wait(1);
-        txHash = receipt.hash;
-        blockNumber = receipt.blockNumber;
-        const block = await chain.getProvider().getBlock(blockNumber);
-        blockTimestamp = new Date(Number(block.timestamp) * 1000).toISOString();
-      } catch (err) {
-        console.error("[covenant] Chain write failed:", err.message);
-      }
-    }
-
-    const maxRow = await db.get(
-      "SELECT MAX(covenant_index) AS max FROM covenants WHERE parcel_apn = ?",
-      [apn]
-    );
-    const covenantIndex = (maxRow?.max ?? -1) + 1;
-    const signerAddress = await getSignerAddress();
-
-    await db.run(
-      `INSERT INTO covenants
-         (parcel_apn, covenant_index, covenant_type, legal_text, ipfs_hash, legal_reference,
-          creator, tx_hash, block_number, block_timestamp, active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [apn, covenantIndex, covenantType, legalText, ipfsHash,
-       legalReference || null, signerAddress, txHash, blockNumber, blockTimestamp]
-    );
-
-    await db.run(
-      `INSERT INTO audit_events
-         (parcel_apn, event_type, block_number, tx_hash, block_timestamp, actor, details)
-       VALUES (?, 'CovenantAdded', ?, ?, ?, ?, ?)`,
-      [apn, blockNumber, txHash, blockTimestamp, signerAddress,
-       JSON.stringify({ covenantIndex, covenantType, ipfsHash })]
-    );
-
-    const updatedParcel = await db.get("SELECT * FROM parcels WHERE apn = ?", [apn]);
-    const covenants = await db.all(
-      "SELECT * FROM covenants WHERE parcel_apn = ? ORDER BY covenant_index ASC",
-      [apn]
-    );
-
-    res.json({ success: true, txHash, blockNumber, blockTimestamp, ipfsHash,
-               parcel: { ...updatedParcel, covenants } });
+    const result = await recordCovenant(apn, { covenantType, legalText, legalReference });
+    res.json(result);
   } catch (err) { next(err); }
 });
 
