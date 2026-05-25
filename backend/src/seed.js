@@ -225,7 +225,12 @@ async function main() {
   }
   console.log(`Inserted ${PARCELS.length} parcels into database.`);
 
-  // 2. Mint parcels on-chain if available
+  // Helper — generate a deterministic-looking fake tx hash for demo mode
+  function demoTxHash(seed) {
+    return "0x" + crypto.createHash("sha256").update(seed).digest("hex");
+  }
+
+  // 2a. Mint parcels on-chain (real) or insert demo audit events (SQLite-only)
   if (chainAvailable) {
     console.log("\nMinting parcels on-chain...");
     for (const p of PARCELS) {
@@ -256,6 +261,31 @@ async function main() {
       }
     }
     console.log("\nAll parcels minted.\n");
+  } else {
+    // Demo mode — synthesize realistic audit events so the UI shows a full history
+    console.log("Generating demo audit events for parcels...");
+    for (let i = 0; i < PARCELS.length; i++) {
+      const p = PARCELS[i];
+      const fakeBlock = 1000000 + i * 3;
+      const fakeTx = demoTxHash(`mint:${p.apn}`);
+      // Stagger mint timestamps over the past 12 months for realism
+      const daysAgo = Math.floor(120 + (PARCELS.length - i) * 2.5);
+      const ts = new Date(Date.now() - daysAgo * 24 * 3600 * 1000).toISOString();
+
+      await db.run(
+        "UPDATE parcels SET on_chain=1, minted_at=?, minted_by=? WHERE apn=?",
+        [ts, signerAddress, p.apn]
+      );
+      await db.run(
+        `INSERT INTO audit_events
+           (parcel_apn, event_type, block_number, tx_hash, block_timestamp, actor, details)
+         VALUES (?, 'ParcelMinted', ?, ?, ?, ?, ?)
+         ON CONFLICT DO NOTHING`,
+        [p.apn, fakeBlock, fakeTx, ts, signerAddress, JSON.stringify({ apn: p.apn })]
+      );
+      process.stdout.write("·");
+    }
+    console.log(`\n${PARCELS.length} demo parcel events generated.\n`);
   }
 
   // 3. Seed covenants
@@ -287,6 +317,9 @@ async function main() {
         process.stdout.write("✓");
       } catch (err) { console.error(`\nChain error for ${c.apn}:`, err.message); }
     } else {
+      // Demo mode — synthesize a plausible tx hash and block for the audit trail
+      txHash = demoTxHash(`covenant:${c.apn}:${c.type}:${c.text}`);
+      blockNumber = 1100000 + Math.floor(Math.random() * 5000);
       process.stdout.write("·");
     }
 
@@ -305,16 +338,14 @@ async function main() {
        signerAddress, txHash, blockNumber, blockTimestamp, c.flagged ? 1 : 0]
     );
 
-    if (blockNumber) {
-      await db.run(
-        `INSERT INTO audit_events
-           (parcel_apn, event_type, block_number, tx_hash, block_timestamp, actor, details)
-         VALUES (?, 'CovenantAdded', ?, ?, ?, ?, ?)
-         ON CONFLICT DO NOTHING`,
-        [c.apn, blockNumber, txHash, blockTimestamp, signerAddress,
-         JSON.stringify({ covenantIndex, covenantType: c.type, ipfsHash })]
-      );
-    }
+    await db.run(
+      `INSERT INTO audit_events
+         (parcel_apn, event_type, block_number, tx_hash, block_timestamp, actor, details)
+       VALUES (?, 'CovenantAdded', ?, ?, ?, ?, ?)
+       ON CONFLICT DO NOTHING`,
+      [c.apn, blockNumber, txHash, blockTimestamp, signerAddress,
+       JSON.stringify({ covenantIndex, covenantType: c.type, ipfsHash })]
+    );
   }
 
   console.log(`\n\nSeed complete!`);

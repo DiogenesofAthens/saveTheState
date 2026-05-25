@@ -1,6 +1,6 @@
 {
-  "installCommand": "npm install && cd frontend && npm install",
-  "buildCommand": "cd contracts && npm install && npx hardhat compile && cd ../backend && node src/seed.js && cd ../frontend && npm run build",
+  "installCommand": "npm install && cd contracts && npm install && cd ../frontend && npm install",
+  "buildCommand": "cd contracts && npx hardhat compile && cd ../backend && node src/seed.js && cd ../frontend && npm run build",
   "outputDirectory": "frontend/dist",
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index" }
@@ -8,7 +8,7 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 30,
-      "includeFiles": "backend/src/**,backend/parcels.db,contracts/artifacts/contracts/CovenantRegistry.sol/CovenantRegistry.json"
+      "includeFiles": "backend/src/**,backend/parcels.db,contracts/artifacts/contracts/CovenantRegistry.sol/CovenantRegistry.json,node_modules/better-sqlite3/**,node_modules/pdfkit/**"
     }
   }
 }
