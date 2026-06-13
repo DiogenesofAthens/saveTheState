@@ -1,0 +1,35 @@
+# Sovereign District
+
+> Blockchain-anchored land covenant registry for county government.
+
+## What Sovereign District Does
+
+Sovereign District is a proof-of-concept system for recording land covenants (use restrictions, easements, and deed conditions) on a public blockchain. Every covenant is an immutable on-chain transaction — tamper-proof and publicly verifiable without a central authority.
+
+This targets county recorder offices that currently maintain covenant records in paper files or proprietary databases. Those systems are opaque, hard to query, and subject to loss or manipulation. Sovereign District makes the record permanent and public.
+
+## How It Works
+
+1. County staff add a covenant to a parcel via the admin UI
+2. The backend calls a Solidity smart contract on Base (Ethereum L2), which emits a permanent on-chain event
+3. The event is also cached in a local SQLite database for fast querying
+4. Anyone can verify a covenant by querying the contract directly on-chain
+5. A map interface shows all parcels color-coded by covenant status
+
+## Architecture
+
+- `contracts/` — Solidity smart contract (`CovenantRegistry.sol`) compiled with Hardhat
+- `backend/` — Express/SQLite API server with ethers.js for chain interaction
+- `frontend/` — React/Vite app with Leaflet map, parcel detail panels, and covenant entry form
+
+## Key Design Decisions
+
+- The word "blockchain" appears only once in the UI (in a tooltip). All user-facing copy uses "Secure Registry," "cryptographically secured," or "tamper-proof record" — language county staff can understand.
+- No end-user wallet required. The backend wallet signs all transactions, so county clerks don't need MetaMask.
+- SQLite is a queryable cache, not the source of truth. The chain is the source of truth.
+
+## Status
+
+Investor/partner demo. Seeded with 50 real Marin County parcels and 21 example covenants.
+
+Built by Kirk Wessman (https://kirkwessman.com). GitHub: https://github.com/DiogenesofAthens/saveTheState
