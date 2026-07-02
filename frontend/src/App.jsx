@@ -5,7 +5,9 @@ import ParcelDetail from "./views/ParcelDetail";
 import AuditTrail from "./views/AuditTrail";
 import AddCovenantModal from "./components/AddCovenantModal";
 import DemoOverlay from "./components/DemoOverlay";
+import RequestDemoModal from "./components/RequestDemoModal";
 import FilterPanel from "./views/FilterPanel";
+import { Landmark } from "lucide-react";
 
 export default function App() {
   const [demoMode, setDemoMode] = useState(false);
@@ -14,6 +16,7 @@ export default function App() {
   const [showAudit, setShowAudit] = useState(false);
   const [showAddCovenant, setShowAddCovenant] = useState(false);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [showRequestDemo, setShowRequestDemo] = useState(false);
   const [parcels, setParcels] = useState([]);
 
   const handleParcelSelect = useCallback(
@@ -122,6 +125,16 @@ export default function App() {
             showAudit={showAudit}
           />
         )}
+
+        <button
+          onClick={() => setShowRequestDemo(true)}
+          className="absolute bottom-5 left-5 z-40 flex items-center gap-2 bg-[#1B2A4A] hover:bg-[#253C6B] text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-lg transition-colors"
+        >
+          <Landmark size={15} />
+          Bring This to Your County
+        </button>
+
+        {showRequestDemo && <RequestDemoModal onClose={() => setShowRequestDemo(false)} />}
       </div>
     </div>
   );

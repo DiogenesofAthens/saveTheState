@@ -42,6 +42,12 @@ export const api = {
       body: JSON.stringify(body),
     }),
   getAuditTrail: (apn) => request(`/audit/${encodeURIComponent(apn)}`),
+  submitLead: (body) =>
+    request("/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
   exportPdf: (apn) => `/api/parcels/${encodeURIComponent(apn)}/export.pdf`,
   getHealth: () => request("/health"),
 };
