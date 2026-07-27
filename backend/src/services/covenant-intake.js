@@ -1,6 +1,5 @@
 const crypto = require("crypto");
 const mammoth = require("mammoth");
-const { PDFParse } = require("pdf-parse");
 const { generateObject } = require("ai");
 const { gateway } = require("@ai-sdk/gateway");
 const { z } = require("zod");
@@ -90,6 +89,20 @@ function normalizeText(text) {
     .trim();
 }
 
+function loadPdfParser() {
+  // pdf-parse discovers its Node canvas implementation dynamically, which
+  // Vercel's dependency tracer cannot see through a transitive import. Keep
+  // this path lazy so a PDF-only dependency can never prevent unrelated API
+  // routes from starting, and import canvas explicitly so it is bundled.
+  const canvas = require("@napi-rs/canvas");
+  for (const globalName of ["DOMMatrix", "ImageData", "Path2D"]) {
+    if (typeof globalThis[globalName] === "undefined" && canvas[globalName]) {
+      globalThis[globalName] = canvas[globalName];
+    }
+  }
+  return require("pdf-parse").PDFParse;
+}
+
 async function parseDocument(document) {
   const extension = document.name.toLowerCase().split(".").pop();
   const isPdf = document.type === "application/pdf" || extension === "pdf";
@@ -104,6 +117,7 @@ async function parseDocument(document) {
       throw new IntakeDocumentError("This file does not appear to be a valid PDF.");
     }
 
+    const PDFParse = loadPdfParser();
     const parser = new PDFParse({ data: document.buffer });
     try {
       const result = await parser.getText();

@@ -1,4 +1,6 @@
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
+const path = require("node:path");
 const test = require("node:test");
 const PDFDocument = require("pdfkit");
 
@@ -31,6 +33,24 @@ function makePdf(pageTexts) {
     document.end();
   });
 }
+
+test("does not load PDF native dependencies during service startup", () => {
+  const servicePath = path.resolve(__dirname, "../src/services/covenant-intake.js");
+  const script = `
+    const Module = require("node:module");
+    const originalLoad = Module._load;
+    Module._load = function (request) {
+      if (request === "pdf-parse" || request === "@napi-rs/canvas") {
+        throw new Error(\`PDF dependency loaded during startup: \${request}\`);
+      }
+      return originalLoad.apply(this, arguments);
+    };
+    require(${JSON.stringify(servicePath)});
+  `;
+  const result = spawnSync(process.execPath, ["-e", script], { encoding: "utf8" });
+
+  assert.equal(result.status, 0, result.stderr);
+});
 
 test("creates a reviewable deterministic draft when no AI model is configured", async () => {
   const previousModel = process.env.AI_MODEL;
