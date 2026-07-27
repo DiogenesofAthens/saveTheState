@@ -96,33 +96,35 @@ Point at the stat boxes.
 
 ---
 
-## Scene 6 — Add a Covenant (2 min)
+## Scene 6 — AI-Assisted Covenant Intake (3 min)
 
 Stay on any open parcel panel (or click any dot to open one).
 
 **Click:** The **"Add Covenant" button** — dark navy, top-right of the Covenant Records section, with a `+` icon.
 
-**What they see:** A modal dialog slides up over a blurred background. Header shows "Record New Covenant" with the APN and address.
+**What they see:** A two-column "Covenant Intake Review" workspace with a new submission form on the left and the clerk review queue on the right.
 
-> "This is where a county clerk or authorized staff member would record a new covenant."
+> "This is where a county clerk or authorized staff member turns a source document into a reviewable registry record."
 
-**Click** the **"Covenant Type" dropdown** and select **"Conservation Easement"** (or any type).
+**Click:** **"Try sample covenant"** below the upload area.
 
-> "We have the standard Marin County covenant types pre-loaded — density floors, transit corridor restrictions, water rights, easements."
+**What they see:** The Intake Copilot analyzes a sample conservation easement and returns a proposed covenant type, plain-English summary, and legal reference. Each field has a confidence score and a verbatim source quote. Additional facts show the affected APN, parties, effective date, perpetual term, and restrictions.
 
-**Click** the **large text area** labeled "Plain-English Summary" and type:
+> "Instead of making staff read and re-key the entire instrument, the Copilot prepares the first draft. It shows exactly where every suggestion came from, and it calls out uncertainty instead of hiding it."
 
-> `Property owner agrees to maintain natural riparian buffer of 50 feet from all creek centerlines. No impervious surface permitted within buffer zone.`
+**Click:** **"Apply suggestions to intake form."**
 
-> "Staff writes it in plain language. No legal Latin required."
+**What they see:** The three core intake fields populate below the Copilot card, but remain fully editable.
 
-Optionally **click** the Legal Reference field and type: `CA Water Code §1600`
+> "The model cannot approve or record anything. A clerk explicitly applies the draft, reviews the source evidence, and can change every field."
 
-Point at the **blue notice box** at the bottom of the form.
+**Click:** **"Submit for Clerk Review."**
 
-> "This is the key part — once you click Record, that's it. The original entry is permanent. Deactivation is possible if a covenant lapses, but the original record stays in the audit trail forever."
+**What they see:** The new submission appears in the right-hand review queue with status **Submitted**.
 
-**Click:** **"Record to Secure Registry"** (large dark navy button, full width, bottom of modal). It will spin briefly.
+**Click:** **"Approve"**, then click **"Record to Secure Registry."**
+
+> "Intake, approval, and recording are separate controls. The assistance is logged in the audit event, but the legal action is always human-authorized."
 
 **What they see:** Green checkmark screen showing Transaction Hash, Block Number, Record Hash, and timestamp.
 

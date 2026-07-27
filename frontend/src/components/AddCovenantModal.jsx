@@ -7,10 +7,12 @@ import {
   Hash,
   Loader2,
   Shield,
+  Sparkles,
   Upload,
   X,
 } from "lucide-react";
 import { api } from "../api";
+import IntakeCopilotCard from "./IntakeCopilotCard";
 
 const COVENANT_TYPES = [
   "Housing Density Floor",
@@ -61,6 +63,21 @@ async function fileToDocument(file) {
   };
 }
 
+function sampleCovenant(parcel) {
+  return `CONSERVATION EASEMENT AND LAND USE COVENANT
+
+Recording requested by: County of Marin
+Assessor's Parcel Number: ${parcel.apn}
+Property address: ${parcel.address}, ${parcel.city}, ${parcel.state || "CA"}
+
+This Conservation Easement and Land Use Covenant is entered into between Redwood Ridge Holdings LLC, as Owner, and the County of Marin, as Holder. It is effective on July 1, 2026.
+
+The Owner shall preserve the western 2.4 acres of the property as permanent open space and native habitat. No residential subdivision, grading, commercial construction, or removal of protected oak trees may occur within the easement area without prior written approval from the County of Marin. The County may enter the easement area after reasonable notice to inspect compliance and maintain an existing public drainage channel.
+
+This covenant runs with the land in perpetuity and binds all successors and assigns. It is recorded under Marin County Code §22.64.030 and California Civil Code §815.
+`;
+}
+
 export default function AddCovenantModal({ parcel, onClose, onSuccess }) {
   const [form, setForm] = useState({
     covenantType: "",
@@ -76,6 +93,10 @@ export default function AddCovenantModal({ parcel, onClose, onSuccess }) {
   const [status, setStatus] = useState("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [recordResult, setRecordResult] = useState(null);
+  const [analysisStatus, setAnalysisStatus] = useState("idle");
+  const [analysisError, setAnalysisError] = useState("");
+  const [intakeResult, setIntakeResult] = useState(null);
+  const [draftApplied, setDraftApplied] = useState(false);
 
   useEffect(() => {
     setLoadingQueue(true);
@@ -96,6 +117,56 @@ export default function AddCovenantModal({ parcel, onClose, onSuccess }) {
 
   function handleChange(e) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  }
+
+  function selectDocument(file) {
+    setDocumentFile(file || null);
+    setIntakeResult(null);
+    setDraftApplied(false);
+    setAnalysisError("");
+    setAnalysisStatus("idle");
+  }
+
+  async function analyzeDocument(file = documentFile) {
+    if (!file || analysisStatus === "analyzing") return;
+    if (file.size > 5 * 1024 * 1024) {
+      setAnalysisError("Documents must be 5 MB or smaller.");
+      return;
+    }
+
+    setAnalysisStatus("analyzing");
+    setAnalysisError("");
+    setIntakeResult(null);
+    setDraftApplied(false);
+    try {
+      const document = await fileToDocument(file);
+      const result = await api.analyzeCovenant(parcel.apn, document);
+      setIntakeResult(result);
+      setAnalysisStatus("complete");
+    } catch (err) {
+      setAnalysisError(err.message || "Document analysis failed. Please enter the intake fields manually.");
+      setAnalysisStatus("error");
+    }
+  }
+
+  function loadSampleDocument() {
+    const file = new File([sampleCovenant(parcel)], "sample-conservation-easement.txt", {
+      type: "text/plain",
+    });
+    selectDocument(file);
+    analyzeDocument(file);
+  }
+
+  function applyCopilotDraft() {
+    const analysis = intakeResult?.analysis;
+    if (!analysis) return;
+    setForm((prev) => ({
+      ...prev,
+      covenantType: analysis.covenantType?.value || prev.covenantType,
+      legalText: analysis.summary?.value || prev.legalText,
+      legalReference: analysis.legalReference?.value || prev.legalReference,
+    }));
+    setDraftApplied(true);
   }
 
   function upsertSubmission(submission) {
@@ -123,6 +194,15 @@ export default function AddCovenantModal({ parcel, onClose, onSuccess }) {
         submitterName: form.submitterName.trim() || undefined,
         submitterType: form.submitterType.trim() || undefined,
         document,
+        analysisMetadata: intakeResult
+          ? {
+              assisted: true,
+              mode: intakeResult.mode,
+              model: intakeResult.model,
+              overallConfidence: intakeResult.overallConfidence,
+              draftApplied,
+            }
+          : undefined,
       });
       upsertSubmission(data.submission);
       setStatus("idle");
@@ -196,6 +276,65 @@ export default function AddCovenantModal({ parcel, onClose, onSuccess }) {
                 New Submission
               </div>
 
+              <div className="space-y-2.5">
+                <label className="block cursor-pointer rounded-lg border border-dashed border-gray-300 p-4 transition-colors hover:border-[#4A6FA5] hover:bg-blue-50">
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.txt,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    onChange={(e) => selectDocument(e.target.files?.[0] || null)}
+                  />
+                  <div className="flex items-start gap-3">
+                    <Upload size={18} className="mt-0.5 text-[#4A6FA5]" />
+                    <div>
+                      <div className="text-sm font-medium text-gray-800">
+                        {documentFile ? documentFile.name : "Attach covenant document"}
+                      </div>
+                      <div className="mt-1 text-xs text-gray-500">
+                        PDF, DOCX, or TXT · up to 5 MB · analyzed in memory
+                      </div>
+                    </div>
+                  </div>
+                </label>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => analyzeDocument()}
+                    disabled={!documentFile || analysisStatus === "analyzing"}
+                    className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-semibold transition-colors ${
+                      documentFile && analysisStatus !== "analyzing"
+                        ? "border-[#4A6FA5] bg-white text-[#35577F] hover:bg-blue-50"
+                        : "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400"
+                    }`}
+                  >
+                    {analysisStatus === "analyzing" ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    {analysisStatus === "analyzing" ? "Analyzing…" : "Analyze document"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={loadSampleDocument}
+                    disabled={analysisStatus === "analyzing"}
+                    className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Try sample covenant
+                  </button>
+                </div>
+              </div>
+
+              {analysisError && (
+                <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
+                  <AlertCircle size={15} className="mt-0.5 flex-shrink-0 text-red-500" />
+                  <p className="text-sm text-red-700">{analysisError}</p>
+                </div>
+              )}
+
+              <IntakeCopilotCard
+                result={intakeResult}
+                applied={draftApplied}
+                onApply={applyCopilotDraft}
+              />
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -268,26 +407,6 @@ export default function AddCovenantModal({ parcel, onClose, onSuccess }) {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#4A6FA5]"
                 />
               </div>
-
-              <label className="block border border-dashed border-gray-300 rounded-lg p-4 cursor-pointer hover:border-[#4A6FA5] hover:bg-blue-50 transition-colors">
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".pdf,.txt,.doc,.docx,application/pdf,text/plain"
-                  onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
-                />
-                <div className="flex items-start gap-3">
-                  <Upload size={18} className="text-[#4A6FA5] mt-0.5" />
-                  <div>
-                    <div className="text-sm font-medium text-gray-800">
-                      {documentFile ? documentFile.name : "Attach covenant document"}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      The server stores document metadata and a SHA-256 fingerprint.
-                    </div>
-                  </div>
-                </div>
-              </label>
 
               {errorMsg && (
                 <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3">

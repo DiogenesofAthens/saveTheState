@@ -34,6 +34,18 @@ function decodeDocument(document = {}) {
   };
 }
 
+function sanitizeAnalysisMetadata(metadata) {
+  if (!metadata || metadata.assisted !== true) return null;
+  const confidence = Number(metadata.overallConfidence);
+  return {
+    assisted: true,
+    mode: ["ai", "demo", "fallback"].includes(metadata.mode) ? metadata.mode : "unknown",
+    model: typeof metadata.model === "string" ? metadata.model.slice(0, 120) : null,
+    overallConfidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : null,
+    draftApplied: metadata.draftApplied === true,
+  };
+}
+
 async function addAuditEvent(apn, eventType, {
   blockNumber = null,
   txHash = null,
@@ -206,6 +218,7 @@ router.post("/:apn/submissions", async (req, res, next) => {
       submitterName,
       submitterType,
       document,
+      analysisMetadata,
     } = req.body;
 
     if (!covenantType || !legalText) {
@@ -216,6 +229,7 @@ router.post("/:apn/submissions", async (req, res, next) => {
     if (!parcel) return res.status(404).json({ error: "Parcel not found" });
 
     const decodedDocument = decodeDocument(document);
+    const intakeAssistance = sanitizeAnalysisMetadata(analysisMetadata);
     const documentHash = decodedDocument.hash || sha256Hex(`${apn}:${covenantType}:${legalText}:${legalReference || ""}`);
     const submittedAt = nowIso();
 
@@ -247,6 +261,7 @@ router.post("/:apn/submissions", async (req, res, next) => {
         documentHash,
         documentName: decodedDocument.name,
         status: "Submitted",
+        intakeAssistance,
       },
     });
 

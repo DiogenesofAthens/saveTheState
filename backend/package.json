@@ -6,17 +6,23 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "seed": "node src/seed.js"
+    "seed": "node src/seed.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
+    "@ai-sdk/gateway": "2.0.21",
     "@neondatabase/serverless": "^1.1.0",
+    "ai": "5.0.114",
     "better-sqlite3": "^12.10.0",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "dotenv": "^16.4.5",
     "ethers": "^6.11.1",
     "express": "^4.19.2",
-    "pdfkit": "^0.18.0"
+    "mammoth": "1.11.0",
+    "pdf-parse": "2.4.5",
+    "pdfkit": "^0.18.0",
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

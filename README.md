@@ -11,6 +11,7 @@ This system provides:
 - A **web-based registry** of 50 Marin County, CA parcels with associated land-use covenants
 - An **interactive map** showing parcel status at a glance
 - A **permanent, immutable audit trail** for every change to every record
+- An **Intake Copilot** that converts PDF, DOCX, or TXT covenant documents into source-cited drafts for clerk review
 - A **self-guided demo mode** for county officials
 
 ---
@@ -70,7 +71,7 @@ cd backend
 cp .env.example .env
 ```
 
-The default `.env` file is pre-configured for local development. No changes are needed to run the demo. For production deployment, replace the `DEPLOYER_PRIVATE_KEY` with a securely generated key and update `HARDHAT_NODE_URL` to point to your network.
+The default `.env` file is pre-configured for local development. No changes are needed to run the demo. The Intake Copilot uses a deterministic sample extractor when `AI_MODEL` is empty. To enable LLM extraction, set `AI_MODEL` to a current Vercel AI Gateway model and provide `AI_GATEWAY_API_KEY` for local development. For production deployment, replace the `DEPLOYER_PRIVATE_KEY` with a securely generated key and update `HARDHAT_NODE_URL` to point to your network.
 
 ---
 
@@ -194,12 +195,9 @@ The right-side panel shows all recorded covenants for the selected parcel. Each 
 
 ### Step 4 — Add a New Covenant
 
-Click the **"Add Covenant"** button in the parcel panel. Fill in:
-1. **Covenant Type** — select from the dropdown
-2. **Plain-English Summary** — describe the obligation in plain language
-3. **Legal Reference** — optional statutory citation
+Click the **"Add Covenant"** button in the parcel panel, then upload a text-based PDF, DOCX, or TXT covenant. You can also click **"Try sample covenant"** for a no-configuration demo.
 
-Click **"Record to Secure Registry"**. The system will show a loading indicator while the record is being secured, then display the transaction hash and confirmation details.
+The Intake Copilot proposes a covenant type, plain-English summary, legal reference, affected APNs, parties, dates, and restrictions. Every suggested core field includes a confidence score and a verbatim source quote. Click **"Apply suggestions to intake form"**, verify or edit the fields, and submit the draft to the clerk review queue. Approval and permanent recording remain separate human actions.
 
 ### Step 5 — Examine the Audit Trail
 
@@ -241,6 +239,7 @@ The API server runs on `http://localhost:3001`. All endpoints return JSON.
 | GET | `/api/parcels` | List all 50 parcels with covenant counts |
 | GET | `/api/parcels/:apn` | Full parcel record with all covenants |
 | GET | `/api/parcels/search?q=` | Search by APN, address, or covenant type |
+| POST | `/api/intake/analyze` | Analyze a covenant document in memory and return a source-cited review draft |
 | POST | `/api/parcels/:apn/covenant` | Record a new covenant |
 | GET | `/api/audit/:apn` | Full audit trail for a parcel |
 | GET | `/api/health` | System status and connectivity check |
@@ -250,10 +249,10 @@ The API server runs on `http://localhost:3001`. All endpoints return JSON.
 ## Frequently Asked Questions
 
 **Q: Do I need internet access to run this demo?**
-No. Everything runs on your local computer. The test network, database, API server, and web application are all local.
+Not for the default demo configuration. The test network, database, API server, web application, and deterministic sample extractor all run locally. Internet access is required only when an administrator enables an AI Gateway model.
 
-**Q: Is any data transmitted to Anthropic, Google, or other third parties?**
-No. The map tiles load from OpenStreetMap (an open public service) and Google Fonts loads the Inter typeface. All parcel and covenant data stays on your machine.
+**Q: Is any data transmitted to an AI provider or other third party?**
+Not in the default demo configuration: when `AI_MODEL` is empty, document analysis stays local and uses a deterministic extractor. If an administrator enables an AI Gateway model, extracted document text is sent to the configured model provider for analysis. The analysis endpoint processes the upload in memory and does not retain the original document. Map tiles still load from OpenStreetMap and Google Fonts loads the Inter typeface.
 
 **Q: What does "cryptographically secured" mean?**
 Every covenant is run through a mathematical function that produces a unique fingerprint (hash). If anyone tries to alter the record — even by one character — the fingerprint changes, immediately revealing the tampering. The record also lives in a distributed ledger, meaning no single party controls it.

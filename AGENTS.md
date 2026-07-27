@@ -43,6 +43,12 @@ When a covenant is added via `POST /api/parcels/:apn/covenant`, the backend:
 2. Calls `contract.addCovenant(parcelId, ...)` — signed by the deployer wallet (no user wallet required)
 3. Waits for 1 confirmation, then writes to SQLite and returns `{ txHash, blockNumber, ipfsHash }`
 
+### Intake Copilot
+
+`POST /api/intake/analyze` parses a text-based PDF, DOCX, or TXT upload in memory and returns a structured covenant draft with field-level confidence and verified source quotes. `backend/src/services/covenant-intake.js` owns parsing, schema validation, evidence verification, and the deterministic no-key fallback. When `AI_MODEL` is configured it uses Vercel AI Gateway; otherwise the sample-document demo remains fully local.
+
+The Copilot never approves or records a covenant. The clerk must explicitly apply the draft, submit it to the existing review queue, approve it, and then record it. AI-assistance metadata is added only to the `CovenantSubmitted` audit event; original documents and model responses are not persisted by the analysis endpoint.
+
 ### Contract → backend coupling
 
 `chain.js` reads two files at startup:
@@ -82,6 +88,8 @@ The word "blockchain" appears exactly once in the UI — inside the `Navbar.jsx`
 | `backend/src/db.js` | SQLite schema init (runs on require) |
 | `backend/src/seed.js` | One-time data seeder — 50 Marin County parcels + 21 covenants |
 | `backend/src/routes/parcels.js` | All parcel CRUD including chain writes |
+| `backend/src/routes/intake.js` | In-memory document analysis API |
+| `backend/src/services/covenant-intake.js` | Document parsing, extraction schema, evidence validation, fallback draft |
 | `frontend/src/api.js` | Typed fetch wrapper for all backend endpoints |
 | `frontend/src/App.jsx` | Root state and panel visibility logic |
 | `backend/contract-address.json` | Generated — do not commit to production branches |

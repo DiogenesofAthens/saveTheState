@@ -161,6 +161,15 @@ function EventRow({ event, isLast }) {
             Status: <span className="font-medium">{details.status}</span>
           </p>
         )}
+        {details.intakeAssistance?.assisted && (
+          <p className="text-xs text-gray-600 mb-1">
+            Intake: <span className="font-medium">Copilot-assisted</span>
+            {Number.isFinite(details.intakeAssistance.overallConfidence)
+              ? ` · ${Math.round(details.intakeAssistance.overallConfidence * 100)}% draft confidence`
+              : ""}
+            {details.intakeAssistance.draftApplied ? " · reviewed draft applied" : ""}
+          </p>
+        )}
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 mt-2">
           <span>{formatTs(event.block_timestamp)}</span>

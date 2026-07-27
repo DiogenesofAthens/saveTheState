@@ -10,23 +10,27 @@ This targets county recorder offices that currently maintain covenant records in
 
 ## How It Works
 
-1. County staff add a covenant to a parcel via the admin UI
-2. The backend calls a Solidity smart contract on Base (Ethereum L2), which emits a permanent on-chain event
-3. The event is also cached in a local SQLite database for fast querying
-4. Anyone can verify a covenant by querying the contract directly on-chain
-5. A map interface shows all parcels color-coded by covenant status
+1. County staff upload a text-based PDF, DOCX, or TXT covenant to the Intake Copilot
+2. The system proposes source-cited structured fields with confidence scores for clerk review
+3. A clerk edits the draft, submits it to the review queue, and separately approves it
+4. The backend calls a Solidity smart contract on Base (Ethereum L2), which emits a permanent on-chain event
+5. The event is also cached in a local SQLite database for fast querying
+6. Anyone can verify a covenant by querying the contract directly on-chain
+7. A map interface shows all parcels color-coded by covenant status
 
 ## Architecture
 
 - `contracts/` — Solidity smart contract (`CovenantRegistry.sol`) compiled with Hardhat
 - `backend/` — Express/SQLite API server with ethers.js for chain interaction
 - `frontend/` — React/Vite app with Leaflet map, parcel detail panels, and covenant entry form
+- `backend/src/services/covenant-intake.js` — document parsing, typed LLM extraction, evidence validation, and local demo fallback
 
 ## Key Design Decisions
 
 - The word "blockchain" appears only once in the UI (in a tooltip). All user-facing copy uses "Secure Registry," "cryptographically secured," or "tamper-proof record" — language county staff can understand.
 - No end-user wallet required. The backend wallet signs all transactions, so county clerks don't need MetaMask.
 - SQLite is a queryable cache, not the source of truth. The chain is the source of truth.
+- Intake Copilot output is never recorded automatically. A human clerk must apply, review, approve, and record the draft.
 
 ## Status
 

@@ -7,6 +7,7 @@ const chain = require("./chain");
 const parcelsRouter = require("./routes/parcels");
 const auditRouter = require("./routes/audit");
 const leadsRouter = require("./routes/leads");
+const intakeRouter = require("./routes/intake");
 
 const app = express();
 
@@ -17,11 +18,12 @@ const allowedOrigins = (process.env.CORS_ORIGINS || "")
   .concat(["http://localhost:5173", "http://localhost:3000"]);
 
 app.use(cors({ origin: allowedOrigins }));
-app.use(express.json({ limit: "5mb" }));
+app.use(express.json({ limit: "8mb" }));
 
 app.use("/api/parcels", parcelsRouter);
 app.use("/api/audit", auditRouter);
 app.use("/api/leads", leadsRouter);
+app.use("/api/intake", intakeRouter);
 
 app.get("/api/health", async (_req, res) => {
   let blockNumber = null;

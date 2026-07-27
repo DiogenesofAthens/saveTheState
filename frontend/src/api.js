@@ -22,6 +22,12 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
+  analyzeCovenant: (apn, document) =>
+    request("/intake/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apn, document }),
+    }),
   getSubmissions: (apn) => request(`/parcels/${encodeURIComponent(apn)}/submissions`),
   createSubmission: (apn, body) =>
     request(`/parcels/${encodeURIComponent(apn)}/submissions`, {
