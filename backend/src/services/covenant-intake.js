@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { pathToFileURL } = require("node:url");
 const mammoth = require("mammoth");
 const { generateObject } = require("ai");
 const { gateway } = require("@ai-sdk/gateway");
@@ -100,7 +101,12 @@ function loadPdfParser() {
       globalThis[globalName] = canvas[globalName];
     }
   }
-  return require("pdf-parse").PDFParse;
+  const { PDFParse } = require("pdf-parse");
+  const workerPath = require.resolve(
+    "../../node_modules/pdf-parse/dist/pdf-parse/cjs/pdf.worker.mjs"
+  );
+  PDFParse.setWorker(pathToFileURL(workerPath).href);
+  return PDFParse;
 }
 
 async function parseDocument(document) {
